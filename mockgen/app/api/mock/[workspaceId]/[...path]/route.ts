@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { EndpointMatcher } from '@/lib/mock-server/matcher';
 import { RequestValidator } from '@/lib/validation/request-validator';
 import { ResponseSimulator } from '@/lib/mock-server/simulator';
+import { RateLimiter } from '@/lib/rate-limit/rate-limiter';
 import { Endpoint } from '@/types/endpoint';
 
 export async function GET(
@@ -56,6 +57,29 @@ async function handleMockRequest(
     const startTime = Date.now();
 
     try {
+        // 0. Rate Limiting Check
+        const rateLimitResult = await RateLimiter.checkWorkspace(request, workspaceId, {
+            capacity: 100,      // 100 requests
+            refillRate: 1.67,   // ~100 per minute (100/60 = 1.67/sec)
+            cost: 1
+        });
+
+        if (!rateLimitResult.allowed) {
+            return NextResponse.json(
+                {
+                    error: 'Rate Limit Exceeded',
+                    message: 'Too many requests. Please try again later.',
+                    retryAfter: rateLimitResult.retryAfter
+                },
+                {
+                    status: 429,
+                    headers: {
+                        'Retry-After': String(rateLimitResult.retryAfter || 60)
+                    }
+                }
+            );
+        }
+
         // 1. Fetch all active endpoints for this workspace and method
         const { data: dbEndpoints, error } = await supabase
             .from('endpoints')
