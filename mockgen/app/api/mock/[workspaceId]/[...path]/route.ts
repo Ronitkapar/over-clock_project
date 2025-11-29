@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { EndpointMatcher } from '@/lib/mock-server/matcher';
+import { RequestValidator } from '@/lib/validation/request-validator';
+import { ResponseSimulator } from '@/lib/mock-server/simulator';
+import { Endpoint } from '@/types/endpoint';
 
 export async function GET(
     request: NextRequest,
@@ -48,20 +52,50 @@ async function handleMockRequest(
 ) {
     const { workspaceId, path } = params;
     const requestPath = '/' + path.join('/');
+    const supabase = await createClient();
+    const startTime = Date.now();
 
     try {
-        // Get endpoint from database
-        const supabase = await createClient();
-        const { data: endpoint, error } = await supabase
+        // 1. Fetch all active endpoints for this workspace and method
+        const { data: dbEndpoints, error } = await supabase
             .from('endpoints')
             .select('*')
             .eq('workspace_id', workspaceId)
             .eq('method', method)
-            .eq('path', requestPath)
-            .eq('is_active', true)
-            .single();
+            .eq('is_active', true);
 
-        if (error || !endpoint) {
+        if (error) {
+            console.error('Database error:', error);
+            return NextResponse.json(
+                { error: 'Database error', message: error.message },
+                { status: 500 }
+            );
+        }
+
+        // Map DB result to Endpoint type
+        const endpoints: Endpoint[] = (dbEndpoints || []).map((e: any) => ({
+            id: e.id,
+            workspaceId: e.workspace_id,
+            blueprintId: e.blueprint_id,
+            method: e.method,
+            path: e.path,
+            description: e.description,
+            requestSchema: e.request_schema,
+            responseSchema: e.response_schema,
+            sampleResponse: e.sample_response,
+            statusCode: e.status_code,
+            delayMs: e.delay_ms,
+            errorRate: e.error_rate,
+            customHeaders: e.custom_headers,
+            isActive: e.is_active,
+            createdAt: e.created_at,
+            updatedAt: e.updated_at
+        }));
+
+        // 2. Find matching endpoint
+        const endpoint = EndpointMatcher.match(endpoints, method, requestPath);
+
+        if (!endpoint) {
             return NextResponse.json(
                 {
                     error: 'Endpoint not found',
@@ -71,30 +105,76 @@ async function handleMockRequest(
             );
         }
 
-        // Simulate delay if configured
-        if (endpoint.delay_ms > 0) {
-            await new Promise(resolve => setTimeout(resolve, endpoint.delay_ms));
-        }
+        // 3. Validate Request Body (for POST/PUT/PATCH)
+        let requestBody = null;
+        if (['POST', 'PUT', 'PATCH'].includes(method)) {
+            try {
+                const text = await request.text();
+                if (text) {
+                    requestBody = JSON.parse(text);
+                }
+            } catch (e) {
+                if (endpoint.requestSchema) {
+                    return NextResponse.json(
+                        { error: 'Invalid JSON body' },
+                        { status: 400 }
+                    );
+                }
+            }
 
-        // Simulate error if configured
-        if (endpoint.error_rate > 0) {
-            const shouldError = Math.random() < (endpoint.error_rate / 100);
-            if (shouldError) {
-                return NextResponse.json(
-                    { error: 'Simulated error', message: 'This error was configured for testing' },
-                    { status: 500 }
-                );
+            if (endpoint.requestSchema && requestBody) {
+                const validation = RequestValidator.validate(requestBody, endpoint.requestSchema);
+                if (!validation.valid) {
+                    return NextResponse.json(
+                        {
+                            error: 'Validation Error',
+                            details: validation.errors
+                        },
+                        { status: 400 }
+                    );
+                }
             }
         }
 
-        // Return mock response
+        // 4. Simulate Response (Delay & Error)
+        const simulation = await ResponseSimulator.simulate(endpoint);
+
+        let responseBody = simulation.response;
+        let responseStatus = simulation.status;
+
+        if (!simulation.isError) {
+            responseBody = endpoint.sampleResponse || { message: 'No sample response configured' };
+            responseStatus = endpoint.statusCode || 200;
+        }
+
+        // 5. Log Request
+        const endTime = Date.now();
+        const duration = endTime - startTime;
+
+        // Fire and forget logging
+        // We don't await this to avoid slowing down the response
+        supabase.from('request_history').insert({
+            workspace_id: workspaceId,
+            endpoint_id: endpoint.id,
+            method: method,
+            url: requestPath,
+            headers: Object.fromEntries(request.headers),
+            body: requestBody,
+            response_body: responseBody,
+            response_status: responseStatus,
+            response_time_ms: duration
+        }).then(({ error }) => {
+            if (error) console.error('Failed to log request:', error);
+        });
+
         return NextResponse.json(
-            endpoint.sample_response || { message: 'No sample response configured' },
+            responseBody,
             {
-                status: endpoint.status_code || 200,
-                headers: endpoint.custom_headers || {}
+                status: responseStatus,
+                headers: endpoint.customHeaders || {}
             }
         );
+
     } catch (error) {
         console.error('Mock server error:', error);
         return NextResponse.json(
