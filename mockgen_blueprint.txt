@@ -1,0 +1,916 @@
+# MockGen — AI-Powered API Mocking Studio
+## Complete Technical Blueprint & Architecture
+
+---
+
+## 1. System Architecture Overview
+
+### 1.1 High-Level Architecture
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        Frontend Layer                        │
+│  Next.js 15 (App Router) + React 18 + TailwindCSS + ShadCN │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      API/Server Layer                        │
+│         Next.js Server Actions + API Routes                  │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+        ┌────────────┼────────────┐
+        ▼            ▼            ▼
+┌──────────────┐ ┌──────────┐ ┌─────────────┐
+│  AI Service  │ │  Mock    │ │  Database   │
+│  (LLM APIs)  │ │  Runtime │ │  (Supabase) │
+└──────────────┘ └──────────┘ └─────────────┘
+```
+
+### 1.2 Technology Stack
+
+**Frontend:**
+- Next.js 15 (App Router)
+- React 18 with TypeScript
+- TailwindCSS v4
+- ShadCN UI Components
+- React Query (TanStack Query) v5
+- Zustand (Global State Management)
+- Monaco Editor (Code Editor)
+- Framer Motion (Animations)
+- React Hook Form + Zod (Form Validation)
+- Axios/Fetch for API calls
+
+**Backend:**
+- Next.js Server Actions & API Routes
+- Node.js Runtime
+- TypeScript
+- Zod (Schema Validation)
+
+**Database & Storage:**
+- Supabase (PostgreSQL + Auth + Storage)
+- Alternative: JSON file-based storage for local development
+
+**AI/LLM Integration:**
+- LM Studio API
+- Ollama API
+- Groq API
+- OpenAI API (optional)
+- Anthropic Claude API (optional)
+
+**DevOps & Deployment:**
+- Vercel (Primary hosting)
+- Docker (Containerization)
+- GitHub Actions (CI/CD)
+- Environment variable management
+
+---
+
+## 2. Folder Structure
+
+```
+mockgen/
+├── app/                              # Next.js App Router
+│   ├── (auth)/                       # Auth routes group
+│   │   ├── login/
+│   │   └── signup/
+│   ├── (dashboard)/                  # Protected dashboard routes
+│   │   ├── layout.tsx
+│   │   ├── page.tsx                  # Dashboard home
+│   │   ├── workspaces/
+│   │   │   ├── page.tsx
+│   │   │   └── [workspaceId]/
+│   │   │       ├── page.tsx          # Workspace detail view
+│   │   │       ├── endpoints/
+│   │   │       ├── settings/
+│   │   │       └── testing/
+│   │   └── settings/
+│   ├── api/                          # API Routes
+│   │   ├── mock/                     # Dynamic mock server routes
+│   │   │   └── [workspaceId]/
+│   │   │       └── [...path]/
+│   │   │           └── route.ts      # Catch-all dynamic route handler
+│   │   ├── generate/
+│   │   │   └── route.ts              # AI generation endpoint
+│   │   ├── workspaces/
+│   │   │   └── route.ts
+│   │   ├── export/
+│   │   │   └── route.ts
+│   │   └── health/
+│   │       └── route.ts
+│   ├── layout.tsx                    # Root layout
+│   ├── globals.css
+│   └── providers.tsx                 # React Query, Theme providers
+│
+├── components/                       # React components
+│   ├── ui/                           # ShadCN UI components
+│   │   ├── button.tsx
+│   │   ├── dialog.tsx
+│   │   ├── input.tsx
+│   │   ├── select.tsx
+│   │   ├── tabs.tsx
+│   │   ├── toast.tsx
+│   │   └── ...
+│   ├── layout/
+│   │   ├── Header.tsx
+│   │   ├── Sidebar.tsx
+│   │   └── Footer.tsx
+│   ├── workspace/
+│   │   ├── WorkspaceCard.tsx
+│   │   ├── WorkspaceList.tsx
+│   │   ├── CreateWorkspaceDialog.tsx
+│   │   └── WorkspaceSettings.tsx
+│   ├── endpoint/
+│   │   ├── EndpointTree.tsx          # Tree view of endpoints
+│   │   ├── EndpointTable.tsx         # Table view of endpoints
+│   │   ├── EndpointEditor.tsx        # Monaco editor wrapper
+│   │   ├── EndpointDetail.tsx
+│   │   └── EndpointFilters.tsx
+│   ├── testing/
+│   │   ├── APITester.tsx             # Postman-like interface
+│   │   ├── RequestPanel.tsx
+│   │   ├── ResponsePanel.tsx
+│   │   └── HistoryPanel.tsx
+│   ├── generation/
+│   │   ├── PromptInput.tsx
+│   │   ├── GenerationProgress.tsx
+│   │   └── GenerationResult.tsx
+│   └── export/
+│       ├── ExportDialog.tsx
+│       └── ExportPreview.tsx
+│
+├── lib/                              # Core business logic
+│   ├── ai/
+│   │   ├── providers/
+│   │   │   ├── base-provider.ts      # Abstract LLM provider
+│   │   │   ├── ollama-provider.ts
+│   │   │   ├── lmstudio-provider.ts
+│   │   │   ├── groq-provider.ts
+│   │   │   └── openai-provider.ts
+│   │   ├── prompt-templates.ts       # System prompts
+│   │   ├── parser.ts                 # Parse LLM responses
+│   │   └── generator.ts              # Main AI generation logic
+│   ├── mock-server/
+│   │   ├── router.ts                 # Dynamic route handler
+│   │   ├── response-generator.ts     # Generate mock responses
+│   │   ├── delay-simulator.ts
+│   │   └── error-simulator.ts
+│   ├── workspace/
+│   │   ├── workspace-service.ts
+│   │   ├── endpoint-service.ts
+│   │   └── project-manager.ts
+│   ├── export/
+│   │   ├── openapi-exporter.ts       # Generate OpenAPI spec
+│   │   ├── code-generator.ts         # Generate route code
+│   │   │   ├── express-generator.ts
+│   │   │   ├── fastapi-generator.ts
+│   │   │   └── fiber-generator.ts
+│   │   └── json-exporter.ts
+│   ├── validation/
+│   │   ├── schema-validator.ts
+│   │   └── request-validator.ts
+│   ├── db/
+│   │   ├── client.ts                 # Supabase client
+│   │   ├── queries.ts
+│   │   └── migrations/
+│   └── utils/
+│       ├── api-parser.ts
+│       ├── json-formatter.ts
+│       └── helpers.ts
+│
+├── hooks/                            # Custom React hooks
+│   ├── useWorkspaces.ts
+│   ├── useEndpoints.ts
+│   ├── useAPITester.ts
+│   ├── useAIGeneration.ts
+│   └── useExport.ts
+│
+├── store/                            # Zustand state management
+│   ├── workspace-store.ts
+│   ├── endpoint-store.ts
+│   ├── ui-store.ts
+│   └── auth-store.ts
+│
+├── types/                            # TypeScript types
+│   ├── workspace.ts
+│   ├── endpoint.ts
+│   ├── mock-config.ts
+│   ├── api-request.ts
+│   └── export.ts
+│
+├── config/                           # Configuration files
+│   ├── ai-providers.ts
+│   ├── routes.ts
+│   └── constants.ts
+│
+├── prisma/                           # If using Prisma
+│   └── schema.prisma
+│
+├── supabase/                         # Supabase config
+│   ├── migrations/
+│   └── seed.sql
+│
+├── public/                           # Static assets
+│   ├── images/
+│   └── icons/
+│
+├── tests/                            # Testing
+│   ├── unit/
+│   ├── integration/
+│   └── e2e/
+│
+├── .env.local                        # Environment variables
+├── .env.example
+├── next.config.js
+├── tailwind.config.ts
+├── tsconfig.json
+├── package.json
+└── README.md
+```
+
+---
+
+## 3. Database Schema (Supabase/PostgreSQL)
+
+```sql
+-- Users table (handled by Supabase Auth)
+-- Extending with custom profile
+CREATE TABLE profiles (
+  id UUID REFERENCES auth.users PRIMARY KEY,
+  email TEXT UNIQUE NOT NULL,
+  full_name TEXT,
+  avatar_url TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Workspaces (Projects)
+CREATE TABLE workspaces (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT,
+  settings JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- API Blueprints (Generated API structure)
+CREATE TABLE api_blueprints (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
+  prompt TEXT NOT NULL,
+  blueprint JSONB NOT NULL,  -- Full API structure
+  version INTEGER DEFAULT 1,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Endpoints
+CREATE TABLE endpoints (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
+  blueprint_id UUID REFERENCES api_blueprints(id) ON DELETE CASCADE,
+  method TEXT NOT NULL,  -- GET, POST, PUT, PATCH, DELETE
+  path TEXT NOT NULL,
+  description TEXT,
+  request_schema JSONB,
+  response_schema JSONB,
+  sample_response JSONB,
+  status_code INTEGER DEFAULT 200,
+  delay_ms INTEGER DEFAULT 0,
+  error_rate DECIMAL(3,2) DEFAULT 0.0,  -- 0.0 to 1.0
+  custom_headers JSONB DEFAULT '{}'::jsonb,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(workspace_id, method, path)
+);
+
+-- Request History (for testing panel)
+CREATE TABLE request_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
+  endpoint_id UUID REFERENCES endpoints(id) ON DELETE SET NULL,
+  method TEXT NOT NULL,
+  url TEXT NOT NULL,
+  headers JSONB,
+  body JSONB,
+  response_body JSONB,
+  response_status INTEGER,
+  response_time_ms INTEGER,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Exports
+CREATE TABLE exports (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
+  export_type TEXT NOT NULL,  -- 'openapi', 'express', 'fastapi', etc.
+  content TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Indexes
+CREATE INDEX idx_workspaces_user_id ON workspaces(user_id);
+CREATE INDEX idx_endpoints_workspace_id ON endpoints(workspace_id);
+CREATE INDEX idx_endpoints_method_path ON endpoints(method, path);
+CREATE INDEX idx_request_history_workspace_id ON request_history(workspace_id);
+CREATE INDEX idx_exports_workspace_id ON exports(workspace_id);
+```
+
+---
+
+## 4. Core Features Implementation
+
+### 4.1 AI Generation Engine
+
+**File: `lib/ai/generator.ts`**
+
+```typescript
+export interface GenerationRequest {
+  prompt: string;
+  provider: 'ollama' | 'lmstudio' | 'groq' | 'openai';
+  model: string;
+}
+
+export interface APIBlueprint {
+  name: string;
+  description: string;
+  baseUrl: string;
+  endpoints: Endpoint[];
+  models: DataModel[];
+}
+
+export interface Endpoint {
+  method: HTTPMethod;
+  path: string;
+  description: string;
+  requestSchema?: JSONSchema;
+  responseSchema: JSONSchema;
+  sampleResponse: any;
+  statusCode: number;
+  errorResponses?: ErrorResponse[];
+  pagination?: PaginationConfig;
+  validation?: ValidationRule[];
+}
+
+export class AIGenerator {
+  async generate(request: GenerationRequest): Promise<APIBlueprint> {
+    // 1. Select provider
+    const provider = this.getProvider(request.provider);
+    
+    // 2. Build system prompt
+    const systemPrompt = this.buildSystemPrompt();
+    
+    // 3. Build user prompt with examples
+    const userPrompt = this.buildUserPrompt(request.prompt);
+    
+    // 4. Call LLM
+    const response = await provider.complete({
+      systemPrompt,
+      userPrompt,
+      model: request.model
+    });
+    
+    // 5. Parse and validate response
+    const blueprint = this.parseResponse(response);
+    
+    // 6. Generate sample data
+    const enrichedBlueprint = await this.enrichWithSampleData(blueprint);
+    
+    return enrichedBlueprint;
+  }
+}
+```
+
+**System Prompt Structure:**
+```typescript
+const SYSTEM_PROMPT = `
+You are an expert API architect. Generate complete, production-ready API specifications.
+
+Output Format: JSON only, no markdown.
+
+Required Structure:
+{
+  "name": "API Name",
+  "description": "API Description",
+  "baseUrl": "/api/mock",
+  "endpoints": [...],
+  "models": [...]
+}
+
+Each endpoint must include:
+- method, path, description
+- requestSchema (if POST/PUT/PATCH)
+- responseSchema with full JSON Schema
+- sampleResponse with realistic data
+- statusCode, errorResponses
+- pagination config if applicable
+`;
+```
+
+### 4.2 Dynamic Mock Server
+
+**File: `app/api/mock/[workspaceId]/[...path]/route.ts`**
+
+```typescript
+export async function GET(
+  request: Request,
+  { params }: { params: { workspaceId: string; path: string[] } }
+) {
+  return handleMockRequest('GET', params.workspaceId, params.path, request);
+}
+
+export async function POST(request: Request, { params }: any) {
+  return handleMockRequest('POST', params.workspaceId, params.path, request);
+}
+
+// ... same for PUT, PATCH, DELETE
+
+async function handleMockRequest(
+  method: string,
+  workspaceId: string,
+  pathSegments: string[],
+  request: Request
+) {
+  // 1. Construct full path
+  const path = '/' + pathSegments.join('/');
+  
+  // 2. Find matching endpoint
+  const endpoint = await findEndpoint(workspaceId, method, path);
+  
+  if (!endpoint) {
+    return new Response('Endpoint not found', { status: 404 });
+  }
+  
+  // 3. Validate request (if schema exists)
+  if (endpoint.requestSchema) {
+    const body = await request.json();
+    const validation = validateRequest(body, endpoint.requestSchema);
+    if (!validation.valid) {
+      return Response.json(validation.errors, { status: 400 });
+    }
+  }
+  
+  // 4. Simulate delay
+  if (endpoint.delay_ms > 0) {
+    await delay(endpoint.delay_ms);
+  }
+  
+  // 5. Simulate errors (based on error_rate)
+  if (Math.random() < endpoint.error_rate) {
+    return simulateError(endpoint);
+  }
+  
+  // 6. Generate response
+  const response = generateResponse(endpoint);
+  
+  // 7. Return with custom headers
+  return Response.json(response, {
+    status: endpoint.status_code,
+    headers: endpoint.custom_headers
+  });
+}
+```
+
+### 4.3 API Testing Panel (Postman-like)
+
+**Component: `components/testing/APITester.tsx`**
+
+Features:
+- Method selector (GET, POST, PUT, PATCH, DELETE)
+- URL input with autocomplete from workspace endpoints
+- Headers editor (key-value pairs)
+- Request body editor (Monaco Editor with JSON validation)
+- Send button with loading state
+- Response display:
+  - Status code badge
+  - Response time
+  - Body (formatted JSON with syntax highlighting)
+  - Headers (collapsible)
+  - Raw/Pretty view toggle
+- History sidebar (last 50 requests)
+- Save request as collection
+
+### 4.4 Endpoint Editor
+
+**Component: `components/endpoint/EndpointEditor.tsx`**
+
+Uses Monaco Editor with:
+- JSON Schema validation
+- Syntax highlighting
+- Auto-completion
+- Error squiggles
+- Format document command
+
+Tabs:
+1. Request Schema
+2. Response Schema
+3. Sample Response
+4. Validation Rules
+5. Settings (delay, error rate, custom headers)
+
+### 4.5 Export System
+
+**Supported Export Formats:**
+
+1. **OpenAPI 3.0 Spec**
+```typescript
+// lib/export/openapi-exporter.ts
+export function generateOpenAPISpec(blueprint: APIBlueprint): OpenAPISpec {
+  return {
+    openapi: '3.0.0',
+    info: {
+      title: blueprint.name,
+      description: blueprint.description,
+      version: '1.0.0'
+    },
+    servers: [{ url: blueprint.baseUrl }],
+    paths: generatePaths(blueprint.endpoints),
+    components: {
+      schemas: generateSchemas(blueprint.models)
+    }
+  };
+}
+```
+
+2. **Express.js Routes**
+```typescript
+// lib/export/code-generator/express-generator.ts
+export function generateExpressRoutes(endpoints: Endpoint[]): string {
+  return `
+const express = require('express');
+const router = express.Router();
+
+${endpoints.map(endpoint => `
+router.${endpoint.method.toLowerCase()}('${endpoint.path}', (req, res) => {
+  // ${endpoint.description}
+  res.status(${endpoint.statusCode}).json(${JSON.stringify(endpoint.sampleResponse, null, 2)});
+});
+`).join('\n')}
+
+module.exports = router;
+  `;
+}
+```
+
+3. **FastAPI Routes** (Python)
+4. **Go Fiber Routes**
+5. **Raw JSON Config**
+6. **Postman Collection**
+
+---
+
+## 5. Frontend Implementation Details
+
+### 5.1 State Management Strategy
+
+**Zustand Store Example:**
+
+```typescript
+// store/workspace-store.ts
+interface WorkspaceStore {
+  workspaces: Workspace[];
+  currentWorkspace: Workspace | null;
+  loading: boolean;
+  
+  fetchWorkspaces: () => Promise<void>;
+  createWorkspace: (data: CreateWorkspaceInput) => Promise<Workspace>;
+  updateWorkspace: (id: string, data: UpdateWorkspaceInput) => Promise<void>;
+  deleteWorkspace: (id: string) => Promise<void>;
+  setCurrentWorkspace: (workspace: Workspace) => void;
+}
+
+export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
+  workspaces: [],
+  currentWorkspace: null,
+  loading: false,
+  
+  fetchWorkspaces: async () => {
+    set({ loading: true });
+    const workspaces = await fetchWorkspacesFromDB();
+    set({ workspaces, loading: false });
+  },
+  
+  // ... other methods
+}));
+```
+
+### 5.2 React Query Integration
+
+```typescript
+// hooks/useWorkspaces.ts
+export function useWorkspaces() {
+  return useQuery({
+    queryKey: ['workspaces'],
+    queryFn: fetchWorkspaces,
+    staleTime: 5 * 60 * 1000 // 5 minutes
+  });
+}
+
+export function useCreateWorkspace() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: createWorkspace,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+    }
+  });
+}
+```
+
+### 5.3 Key UI Components
+
+**Dashboard Layout:**
+```
+┌─────────────────────────────────────────────────────────┐
+│  Header (Logo, Search, User Menu)                       │
+├──────────┬──────────────────────────────────────────────┤
+│          │                                              │
+│ Sidebar  │         Main Content Area                    │
+│          │                                              │
+│ - Home   │  ┌────────────────────────────────────┐     │
+│ - Works  │  │  Workspace: "E-commerce API"       │     │
+│ - Sett   │  ├────────────────────────────────────┤     │
+│          │  │  Tabs: Endpoints | Testing | Exp  │     │
+│          │  ├────────────────────────────────────┤     │
+│          │  │                                    │     │
+│          │  │  [Content based on active tab]     │     │
+│          │  │                                    │     │
+│          │  └────────────────────────────────────┘     │
+└──────────┴──────────────────────────────────────────────┘
+```
+
+**Endpoints View:**
+- Tree/Table view toggle
+- Filter by method (GET, POST, etc.)
+- Search endpoints
+- Click endpoint → open in editor modal
+
+**Testing View:**
+- Split pane: Request (left) | Response (right)
+- Request history sidebar (collapsible)
+
+---
+
+## 6. Development Phases
+
+### Phase 1: Foundation (Weeks 1-4)
+- [ ] Set up Next.js project with TypeScript
+- [ ] Configure TailwindCSS + ShadCN
+- [ ] Set up Supabase (database + auth)
+- [ ] Implement authentication (login/signup)
+- [ ] Create basic dashboard layout
+- [ ] Build workspace CRUD operations
+
+### Phase 2: AI Integration (Weeks 5-8)
+- [ ] Implement LLM provider abstraction layer
+- [ ] Integrate Ollama/LM Studio/Groq
+- [ ] Build prompt engineering system
+- [ ] Create AI response parser
+- [ ] Implement blueprint generation UI
+- [ ] Add loading states and error handling
+
+### Phase 3: Mock Server (Weeks 9-12)
+- [ ] Build dynamic route handler
+- [ ] Implement endpoint matching logic
+- [ ] Add response generation
+- [ ] Implement delay/error simulation
+- [ ] Create endpoint storage in DB
+- [ ] Build endpoint CRUD operations
+
+### Phase 4: Endpoint Management (Weeks 13-16)
+- [ ] Build endpoint tree/table view
+- [ ] Integrate Monaco Editor
+- [ ] Create endpoint detail editor
+- [ ] Implement schema validation
+- [ ] Add sample data generation
+- [ ] Build filtering and search
+
+### Phase 5: API Testing Panel (Weeks 17-20)
+- [ ] Create request builder UI
+- [ ] Implement HTTP client
+- [ ] Build response viewer
+- [ ] Add request history
+- [ ] Create save/load requests
+- [ ] Implement collections
+
+### Phase 6: Export System (Weeks 21-24)
+- [ ] Build OpenAPI exporter
+- [ ] Create code generators (Express, FastAPI, Fiber)
+- [ ] Add JSON export
+- [ ] Implement Postman collection export
+- [ ] Build export UI/modal
+- [ ] Add download functionality
+
+### Phase 7: Polish & Production (Weeks 25-28)
+- [ ] Add animations (Framer Motion)
+- [ ] Implement dark mode
+- [ ] Create onboarding flow
+- [ ] Add keyboard shortcuts
+- [ ] Write documentation
+- [ ] Set up monitoring
+- [ ] Deploy to Vercel
+- [ ] Performance optimization
+
+---
+
+## 7. Technical Challenges & Solutions
+
+### Challenge 1: AI Response Consistency
+**Problem:** LLMs may generate inconsistent API structures
+**Solution:**
+- Strict JSON schema in system prompt
+- Response validation layer
+- Retry logic with refined prompts
+- Fallback templates
+
+### Challenge 2: Dynamic Route Handling
+**Problem:** Matching incoming requests to stored endpoints with path params
+**Solution:**
+- Use path-to-regexp library
+- Store compiled regex patterns
+- Implement path parameter extraction
+- Cache matching results
+
+### Challenge 3: Real-time Monaco Editor Performance
+**Problem:** Large JSON schemas slow down editor
+**Solution:**
+- Debounce validation
+- Lazy load editor
+- Use web workers for validation
+- Implement virtualization for large responses
+
+### Challenge 4: Scalable Mock Server
+**Problem:** Multiple workspaces with hundreds of endpoints
+**Solution:**
+- Index endpoints by workspace + method + path
+- Use Redis for caching (optional)
+- Implement rate limiting
+- Add pagination for endpoint lists
+
+---
+
+## 8. Environment Variables
+
+```bash
+# .env.local
+
+# App
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+
+# AI Providers
+OLLAMA_BASE_URL=http://localhost:11434
+LMSTUDIO_BASE_URL=http://localhost:1234
+GROQ_API_KEY=your-groq-key
+OPENAI_API_KEY=your-openai-key (optional)
+
+# Analytics (optional)
+NEXT_PUBLIC_GA_ID=your-ga-id
+```
+
+---
+
+## 9. Deployment Checklist
+
+### Vercel Deployment
+1. Connect GitHub repository
+2. Configure environment variables
+3. Set build command: `npm run build`
+4. Set output directory: `.next`
+5. Enable automatic deployments
+
+### Pre-Production Checklist
+- [ ] Set up error tracking (Sentry)
+- [ ] Configure analytics
+- [ ] Set up database backups
+- [ ] Implement rate limiting
+- [ ] Add CORS configuration
+- [ ] Set up CDN for static assets
+- [ ] Configure custom domain
+- [ ] Set up SSL certificate
+- [ ] Create status page
+- [ ] Write API documentation
+
+---
+
+## 10. Testing Strategy
+
+### Unit Tests
+- AI parser logic
+- Endpoint matching
+- Schema validation
+- Export generators
+
+### Integration Tests
+- API route handlers
+- Database operations
+- LLM provider integrations
+
+### E2E Tests (Playwright)
+- User flows:
+  - Create workspace
+  - Generate API from prompt
+  - Edit endpoint
+  - Test endpoint
+  - Export API
+
+---
+
+## 11. Performance Optimization
+
+### Frontend
+- Code splitting (Next.js automatic)
+- Image optimization (next/image)
+- Lazy load heavy components (Monaco Editor)
+- React.memo for expensive renders
+- Debounce search and filters
+
+### Backend
+- Database query optimization
+- Endpoint result caching
+- CDN for static assets
+- Compress API responses
+
+### Monitoring
+- Core Web Vitals tracking
+- API response time monitoring
+- Error rate tracking
+- User session recording (optional)
+
+---
+
+## 12. Security Considerations
+
+- [ ] Implement CSRF protection
+- [ ] Sanitize user inputs
+- [ ] Validate all API requests
+- [ ] Use parameterized database queries
+- [ ] Implement rate limiting per user
+- [ ] Add request size limits
+- [ ] Secure environment variables
+- [ ] Implement proper CORS policies
+- [ ] Add security headers
+- [ ] Regular dependency updates
+
+---
+
+## 13. Extensibility Points
+
+Future features to consider:
+- Team collaboration (shared workspaces)
+- Real-time collaboration (WebSockets)
+- API versioning
+- Custom middleware/plugins
+- Webhook simulation
+- GraphQL support
+- API analytics dashboard
+- Integration with CI/CD platforms
+- Docker image export
+- Kubernetes deployment configs
+
+---
+
+## 14. Learning Resources
+
+### Key Concepts to Master
+1. Next.js App Router & Server Actions
+2. React Query for async state
+3. Zustand for client state
+4. LLM prompt engineering
+5. JSON Schema validation
+6. RESTful API design principles
+7. Database indexing strategies
+8. TypeScript advanced types
+
+### Recommended Courses/Docs
+- Next.js official documentation
+- React Query documentation
+- Supabase tutorials
+- Monaco Editor API docs
+- LangChain documentation (for LLM patterns)
+
+---
+
+## Estimated Timeline
+
+**Solo Developer:**
+- Full-time: 6-9 months
+- Part-time (20h/week): 12-18 months
+
+**Small Team (2-3 devs):**
+- 4-6 months to MVP
+- 8-12 months to production-ready
+
+**Critical Path:**
+AI Generation → Mock Server → Endpoint Management → Testing Panel → Export
+
+---
+
+This blueprint provides the complete technical foundation. Each section can be expanded into detailed implementation guides as you progress through development.
